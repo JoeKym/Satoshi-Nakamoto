@@ -1,0 +1,15 @@
+{
+  "name": "Satoshi Nakamoto Tracker",
+  "short_name": "SatoshiTracker",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#00ffcc",
+  "icons": [
+    {
+      "src": "https://www.svgrepo.com/show/331488/bitcoin.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ]
+}

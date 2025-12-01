@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Satoshi Nakamoto Tracker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.js" crossorigin="anonymous" onerror="console.warn('Chart.js failed to load from CDN')"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+    :root {
+      --primary: #00e6b8;
+      --secondary: #00cc99;
+      --danger: #ff4d4d;
+      --bg-dark: #0d1117;
+      --bg-card: rgba(20, 25, 30, 0.8);
+      --text-light: #e6f3f0;
+      --shadow: 0 4px 20px rgba(0, 230, 184, 0.2);
+      --glass: rgba(255, 255, 255, 0.05);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: radial-gradient(circle at center, #1a2330, #0d1117);
+      color: var(--text-light);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .matrix-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      opacity: 0.08;
+    }
+
+    .container {
+      padding: 2rem;
+      max-width: 1200px;
+      margin: auto;
+      position: relative;
+      z-index: 1;
+    }
+
+    .title {
+      text-align: center;
+      font-size: 2.8rem;
+      font-weight: 700;
+      margin-bottom: 2rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      animation: glow 3s ease-in-out infinite alternate;
+    }
+
+    @keyframes glow {
+      from { filter: drop-shadow(0 0 10px rgba(0, 230, 184, 0.5)); }
+      to { filter: drop-shadow(0 0 20px rgba(0, 230, 184, 0.8)); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .title, .stat-card, .theory, .easter-egg {
+        animation: none;
+        transition: none;
+      }
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--glass);
+      padding: 1.5rem;
+      border-radius: 12px;
+      text-align: center;
+      backdrop-filter: blur(12px);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: var(--shadow);
+    }
+
+    .stat-label {
+      font-size: 0.95rem;
+      opacity: 0.7;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .stat-value {
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    .large-value {
+      font-size: 2.2rem;
+    }
+
+    .converter {
+      margin: 1rem 0;
+      text-align: center;
+    }
+
+    .converter input {
+      background: var(--bg-card);
+      border: 1px solid var(--primary);
+      color: var(--text-light);
+      padding: 0.5rem;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      width: 120px;
+      text-align: center;
+    }
+
+    .converter input:focus {
+      outline: 2px solid var(--secondary);
+      outline-offset: 2px;
+    }
+
+    .chart-container {
+      background: var(--bg-card);
+      border: 1px solid var(--glass);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2.5rem;
+      backdrop-filter: blur(12px);
+    }
+
+    canvas {
+      border-radius: 8px;
+    }
+
+    .theories {
+      margin-top: 2.5rem;
+    }
+
+    .theories h3 {
+      text-align: center;
+      font-size: 1.8rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      color: var(--primary);
+    }
+
+    .theory {
+      background: var(--bg-card);
+      border-left: 4px solid var(--primary);
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 0 12px 12px 0;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .theory[aria-expanded="true"] {
+      transform: translateX(5px);
+      background: rgba(20, 25, 30, 0.9);
+    }
+
+    .theory-title {
+      color: var(--primary);
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .theory-content {
+      display: none;
+      font-size: 0.95rem;
+      opacity: 0.9;
+    }
+
+    .theory[aria-expanded="true"] .theory-content {
+      display: block;
+    }
+
+    .easter-egg {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 77, 77, 0.95);
+      color: var(--text-light);
+      padding: 2rem;
+      border-radius: 12px;
+      font-size: 1.4rem;
+      text-align: center;
+      z-index: 1000;
+      max-width: 90%;
+      box-shadow: 0 0 20px rgba(255, 77, 77, 0.5);
+      animation: shake 0.4s ease-in-out infinite;
+      display: none;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translate(-50%, -50%) rotate(0deg); }
+      25% { transform: translate(-50%, -50%) rotate(0.5deg); }
+      75% { transform: translate(-50%, -50%) rotate(-0.5deg); }
+    }
+
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .status-online {
+      background: var(--primary);
+    }
+
+    .status-offline {
+      background: var(--danger);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .market-fear {
+      color: var(--danger);
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.5; }
+    }
+
+    .loading {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 1rem;
+      }
+
+      .title {
+        font-size: 2rem;
+      }
+
+      .converter input {
+        width: 100%;
+        max-width: 200px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas class="matrix-bg" id="matrixBg"></canvas>
+
+  <div class="container">
+    <div class="title">Satoshi Nakamoto Tracker</div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3h18v18H3zM12 8v8m-4-4h8"/>
+          </svg>
+          BTC Holdings
+        </div>
+        <div class="stat-value large-value">1,100,000 BTC</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">
+          <span class="status-indicator" id="statusIndicator"></span>
+          Live BTC Price
+        </div>
+        <div class="stat-value" id="btcPrice">Loading...</div>
+        <div id="apiMessage" style="margin-top:6px;font-size:0.9rem;opacity:0.9">Connecting...</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v20M2 12h20"/>
+          </svg>
+          Net Worth (USD)
+        </div>
+        <div class="stat-value large-value" id="netWorthUSD">Calculating...</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12h18M12 3v18"/>
+          </svg>
+          Net Worth (KES)
+        </div>
+        <div class="stat-value large-value" id="netWorthKES">Calculating...</div>
+        <div class="converter">
+          <input type="number" id="kesRate" placeholder="USD/KES Rate" title="Enter USD to KES exchange rate">
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12h18M12 3v18"/>
+          </svg>
+          24h Change
+        </div>
+        <div class="stat-value" id="priceChange">--</div>
+      </div>
+    </div>
+
+    <div class="chart-container loading" id="chartContainer">
+      <canvas id="chart" height="100"></canvas>
+    </div>
+
+    <div class="theories">
+      <h3>Who is Satoshi Nakamoto?</h3>
+
+      <div class="theory" role="button" tabindex="0" aria-expanded="false" onclick="toggleTheory(this)" onkeydown="if(event.key === 'Enter') toggleTheory(this)">
+        <div class="theory-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm-7 7c0-5 3-9 7-9s7 4 7 9"/>
+          </svg>
+          Hal Finney
+        </div>
+        <div class="theory-content">First BTC transaction recipient, cryptographic pioneer, and early Bitcoin contributor. Strong technical background and timeline alignment.</div>
+      </div>
+
+      <div class="theory" role="button" tabindex="0" aria-expanded="false" onclick="toggleTheory(this)" onkeydown="if(event.key === 'Enter') toggleTheory(this)">
+        <div class="theory-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 3v15m6-15v15M4 6h16M4 10h16M4 14h16"/>
+          </svg>
+          Nick Szabo
+        </div>
+        <div class="theory-content">Creator of "Bit Gold" concept, writing style matches, deep cryptographic knowledge, but denies involvement.</div>
+      </div>
+
+      <div class="theory" role="button" tabindex="0" aria-expanded="false" onclick="toggleTheory(this)" onkeydown="if(event.key === 'Enter') toggleTheory(this)">
+        <div class="theory-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3h18v18H3z"/>
+          </svg>
+          Dorian Nakamoto
+        </div>
+        <div class="theory-content">Physics and engineering background, same name, but repeatedly denied being Bitcoin's creator.</div>
+      </div>
+
+      <div class="theory" role="button" tabindex="0" aria-expanded="false" onclick="toggleTheory(this)" onkeydown="if(event.key === 'Enter') toggleTheory(this)">
+        <div class="theory-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2a10 10 0 0 0-10 10c0 5.5 4.5 10 10 10s10-4.5 10-10A10 10 0 0 0 12 2z"/>
+          </svg>
+          AI/Government
+        </div>
+        <div class="theory-content">Satoshi could be an advanced AI or government project, fueled by perfect anonymity and technical precision.</div>
+      </div>
+
+      <div class="theory" role="button" tabindex="0" aria-expanded="false" onclick="toggleTheory(this)" onkeydown="if(event.key === 'Enter') toggleTheory(this)">
+        <div class="theory-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm14 18v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          Group Theory
+        </div>
+        <div class="theory-content">Multiple developers under one pseudonym, explaining consistent code quality and diverse expertise.</div>
+      </div>
+
+      <div class="theory" role="button" tabindex="0" aria-expanded="false" onclick="toggleTheory(this)" onkeydown="if(event.key === 'Enter') toggleTheory(this)">
+        <div class="theory-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+          </svg>
+          Forever Anonymous
+        </div>
+        <div class="theory-content">Satoshi's identity may never be revealed, preserving the decentralized vision.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="easter-egg" id="easterEgg">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M12 2v20M8 16l4 4 4-4"/>
+    </svg>
+    SATOSHI HAS MOVED! MARKET IN CHAOS!<br>
+    <small>Click to dismiss</small>
+  </div>
+
+  <script>
+    const holdings = 1100000;
+    // Toggle service worker registration: set to `true` in production.
+    const ENABLE_SW = false;
+
+    // Manage service worker depending on environment.
+    if ('serviceWorker' in navigator) {
+      if (ENABLE_SW) {
+        // Register the service worker for production/offline behavior.
+        navigator.serviceWorker.register('./serviceWorker.js').then(reg => {
+          console.log('[SW] registered', reg);
+        }).catch(err => console.warn('[SW] registration failed', err));
+      } else {
+        // During development, unregister any existing workers that might
+        // be serving stale caches and interfering with API calls.
+        navigator.serviceWorker.getRegistrations().then(regs => {
+          regs.forEach(reg => {
+            reg.unregister().then(success => {
+              if (success) console.log('[SW] unregistered old service worker');
+            }).catch(err => console.warn('[SW] unregister failed', err));
+          });
+        }).catch(err => console.warn('[SW] getRegistrations failed', err));
+      }
+    }
+    const priceEl = document.getElementById('btcPrice');
+    const worthElUSD = document.getElementById('netWorthUSD');
+    const worthElKES = document.getElementById('netWorthKES');
+    const kesRateEl = document.getElementById('kesRate');
+    const changeEl = document.getElementById('priceChange');
+    const statusEl = document.getElementById('statusIndicator');
+    const eggEl = document.getElementById('easterEgg');
+    const chartContainer = document.getElementById('chartContainer');
+
+    let btcPrice = 0;
+    let originalPrice = 0;
+    let usdToKesRate = 129; // Default fallback rate (approx USD/KES as of 2025)
+    let chartRef;
+    let priceHistory = JSON.parse(localStorage.getItem('priceHistory')) || [];
+
+    // Debounce utility
+    const debounce = (func, wait) => {
+      let timeout;
+      return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    };
+
+    // Matrix background
+    function initMatrix() {
+      const canvas = document.getElementById('matrixBg');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const chars = '01';
+      const charArray = chars.split('');
+      const fontSize = 12;
+      const columns = canvas.width / fontSize;
+      const drops = Array(Math.floor(columns)).fill(1);
+
+      function draw() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'var(--primary)';
+        ctx.font = `${fontSize}px 'Inter'`;
+
+        for (let i = 0; i < drops.length; i++) {
+          const text = charArray[Math.floor(Math.random() * charArray.length)];
+          ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+          if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+            drops[i] = 0;
+          }
+          drops[i]++;
+        }
+      }
+
+      setInterval(draw, 200);
+    }
+
+    async function fetchExchangeRate() {
+      try {
+        const apiMsgEl = document.getElementById('apiMessage');
+        if (apiMsgEl) apiMsgEl.textContent = 'Fetching rates...';
+        console.log('[fetchExchangeRate] starting');
+        const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD', { cache: 'no-store', mode: 'cors' });
+        if (!res.ok) throw new Error('Exchange rate API failed');
+        const data = await res.json();
+        usdToKesRate = data.rates.KES || usdToKesRate;
+        kesRateEl.value = usdToKesRate.toFixed(2);
+        localStorage.setItem('lastKesRate', usdToKesRate);
+        updateNetWorth();
+        if (apiMsgEl) apiMsgEl.textContent = 'Rates OK';
+      } catch (err) {
+        console.warn('Failed to fetch exchange rate:', err);
+        usdToKesRate = parseFloat(localStorage.getItem('lastKesRate')) || usdToKesRate;
+        kesRateEl.value = usdToKesRate.toFixed(2);
+        const apiMsgEl = document.getElementById('apiMessage');
+        if (apiMsgEl) apiMsgEl.textContent = 'Exchange rate fetch failed';
+      }
+    }
+
+    async function fetchBTC(retryCount = 0) {
+      try {
+        const apiMsgEl = document.getElementById('apiMessage');
+        if (apiMsgEl) apiMsgEl.textContent = 'Fetching price...';
+        console.log('[fetchBTC] starting attempt', retryCount);
+        statusEl.className = 'status-indicator status-online';
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true', { cache: 'no-store', mode: 'cors' });
+        if (!res.ok) throw new Error('API request failed');
+        const data = await res.json();
+
+        btcPrice = data.bitcoin.usd;
+        localStorage.setItem('lastBTCPrice', btcPrice);
+        if (originalPrice === 0) originalPrice = btcPrice;
+
+        priceEl.textContent = `$${btcPrice.toLocaleString()}`;
+        const change24h = data.bitcoin.usd_24h_change || 0;
+        changeEl.style.color = change24h >= 0 ? 'var(--primary)' : 'var(--danger)';
+        changeEl.textContent = `${change24h >= 0 ? '+' : ''}${change24h.toFixed(2)}%`;
+
+        updateNetWorth();
+        debouncedUpdateChart();
+        chartContainer.classList.remove('loading');
+
+        priceHistory.push({
+          time: new Date().toLocaleTimeString(),
+          price: btcPrice,
+          worth: holdings * btcPrice
+        });
+        if (priceHistory.length > 15) priceHistory.shift();
+        localStorage.setItem('priceHistory', JSON.stringify(priceHistory));
+        if (apiMsgEl) apiMsgEl.textContent = `Live — ${new Date().toLocaleTimeString()}`;
+      } catch (err) {
+        statusEl.className = 'status-indicator status-offline';
+        priceEl.textContent = localStorage.getItem('lastBTCPrice') || 'Connection Error';
+        worthElUSD.textContent = 'N/A';
+        worthElKES.textContent = 'N/A';
+        const apiMsgEl = document.getElementById('apiMessage');
+        if (apiMsgEl) apiMsgEl.textContent = 'Price fetch failed';
+        if (retryCount < 3) {
+          setTimeout(() => fetchBTC(retryCount + 1), 5000 * (retryCount + 1));
+        }
+      }
+    }
+
+    function updateNetWorth() {
+      const totalUSD = holdings * btcPrice;
+      const totalKES = totalUSD * usdToKesRate;
+      worthElUSD.textContent = `$${totalUSD.toLocaleString()}`;
+      worthElKES.textContent = totalKES ? `KES ${totalKES.toLocaleString()}` : 'N/A';
+      worthElUSD.className = btcPrice <= originalPrice * 0.1 ? 'stat-value large-value market-fear' : 'stat-value large-value';
+      worthElKES.className = btcPrice <= originalPrice * 0.1 ? 'stat-value large-value market-fear' : 'stat-value large-value';
+      eggEl.style.display = btcPrice <= originalPrice * 0.1 ? 'block' : 'none';
+    }
+
+    const debouncedUpdateChart = debounce(() => {
+      if (!chartRef) return;
+      const now = new Date().toLocaleTimeString();
+      const worth = btcPrice * holdings;
+
+      if (chartRef.data.labels.length > 15) {
+        chartRef.data.labels.shift();
+        chartRef.data.datasets[0].data.shift();
+        chartRef.data.datasets[1].data.shift();
+      }
+
+      chartRef.data.labels.push(now);
+      chartRef.data.datasets[0].data.push(worth);
+      chartRef.data.datasets[1].data.push(btcPrice);
+      chartRef.update();
+    }, 500);
+
+    function createChart() {
+      const ctx = document.getElementById('chart').getContext('2d');
+      chartRef = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: priceHistory.map(item => item.time),
+          datasets: [{
+            label: 'Net Worth (USD)',
+            data: priceHistory.map(item => item.worth),
+            borderColor: 'var(--primary)',
+            backgroundColor: 'rgba(0, 230, 184, 0.1)',
+            fill: true,
+            tension: 0.4,
+            yAxisID: 'y'
+          }, {
+            label: 'BTC Price (USD)',
+            data: priceHistory.map(item => item.price),
+            borderColor: 'var(--secondary)',
+            backgroundColor: 'rgba(0, 204, 153, 0.1)',
+            fill: false,
+            tension: 0.4,
+            yAxisID: 'y1'
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              type: 'linear',
+              position: 'left',
+              ticks: {
+                color: 'var(--primary)',
+                callback: value => '$' + value.toLocaleString()
+              },
+              grid: { color: 'rgba(255, 255, 255, 0.1)' },
+              title: {
+                display: true,
+                text: 'Net Worth (USD)',
+                color: 'var(--primary)',
+                font: { size: 14 }
+              }
+            },
+            y1: {
+              type: 'linear',
+              position: 'right',
+              ticks: {
+                color: 'var(--secondary)',
+                callback: value => '$' + value.toLocaleString()
+              },
+              grid: { drawOnChartArea: false },
+              title: {
+                display: true,
+                text: 'BTC Price (USD)',
+                color: 'var(--secondary)',
+                font: { size: 14 }
+              }
+            },
+            x: {
+              ticks: { color: 'var(--text-light)' },
+              grid: { color: 'rgba(255, 255, 255, 0.1)' }
+            }
+          },
+          plugins: {
+            legend: {
+              labels: { color: 'var(--text-light)', font: { size: 12 } },
+              position: 'top'
+            }
+          }
+        }
+      });
+    }
+
+    function toggleTheory(element) {
+      const isExpanded = element.getAttribute('aria-expanded') === 'true';
+      element.setAttribute('aria-expanded', !isExpanded);
+    }
+
+    // Manual KES rate input
+    kesRateEl.addEventListener('input', () => {
+      const newRate = parseFloat(kesRateEl.value);
+      if (!isNaN(newRate) && newRate > 0) {
+        usdToKesRate = newRate;
+        localStorage.setItem('lastKesRate', usdToKesRate);
+        updateNetWorth();
+      }
+    });
+
+    eggEl.addEventListener('click', () => {
+      eggEl.style.display = 'none';
+    });
+
+    window.addEventListener('load', () => {
+      initMatrix();
+
+      // Run network calls first so a failure during chart initialization
+      // (for example a blocked CDN script) doesn't stop API requests.
+      fetchExchangeRate();
+      fetchBTC();
+      setInterval(fetchBTC, 30000);
+
+      // Try to create the chart, but don't let Chart.js errors block the page.
+      try {
+        if (typeof Chart !== 'undefined') {
+          createChart();
+        } else {
+          console.warn('Chart.js not available; skipping chart initialization');
+          chartContainer.classList.remove('loading');
+        }
+      } catch (err) {
+        console.warn('Failed to initialize chart:', err);
+        chartContainer.classList.remove('loading');
+      }
+    });
+
+    // Fallback: if load handler didn't run for some reason (blocked scripts,
+    // file:// usage), attempt the API calls again after a short delay.
+    setTimeout(() => {
+      try {
+        console.log('[fallback] initiating forced fetch attempts');
+        fetchExchangeRate();
+        fetchBTC();
+      } catch (err) {
+        console.warn('[fallback] fetch attempt failed', err);
+      }
+    }, 2000);
+
+    window.addEventListener('resize', () => {
+      const canvas = document.getElementById('matrixBg');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+  </script>
+</body>
+</html>
